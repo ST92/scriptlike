@@ -2,7 +2,7 @@ g = globals()
 import pathlib, functools
 
 class Scriptlike:
-    def __init__(self, path):
+    def __init__(self, path: pathlib.Path):
         self.__path = path
         self.__clean = dict(
             **g,
@@ -13,6 +13,7 @@ class Scriptlike:
         self.__update()
         
     def __update(self):
+        # delete old callable entries from self
         for k in self.__box.keys():
             if k in self.__dict__:
                 val = self.__dict__[k]
@@ -21,12 +22,15 @@ class Scriptlike:
                         self.__dict__.pop(k)
 
         self.__box = dict(
-            **self.__clean
+            **self.__clean,
+            __name__=g['__package__']+'.'+self.__path.name[:-3], #.py
+            __file__=str(self.__path),
+            __package__=g['__package__']
         )
         script = self.__path.read_text()
         exec(script, self.__box)
-        
-    
+            
+        # add entries for callables into self
         for k,v in self.__box.items():
             if callable(v):
                 self.__dict__[k] = self.__wrap(k)
@@ -47,11 +51,11 @@ class Scriptlike:
             if __name.startswith('__'):
                 raise
             try:
-                v = self.__box.get(__name)
+                v = self.__box[__name]
                 if callable(v):
                     return self.__wrap(__name) # redundant!
                 return v
-            except IndexError:
+            except KeyError:
                 raise AttributeError(__name)
         
 
